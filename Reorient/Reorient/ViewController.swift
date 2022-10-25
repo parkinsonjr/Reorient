@@ -18,7 +18,7 @@ var curPeripheral: CBPeripheral?
 var txCharacteristic: CBCharacteristic?
 var rxCharacteristic: CBCharacteristic?
 
-class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDelegate {
+class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDelegate, CLLocationManagerDelegate {
 
     // Variable Initializations
     var centralManager: CBCentralManager!
@@ -44,7 +44,7 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         locationLabel.text = "Looking..."
     }
     @IBAction func stop_Btn(_ sender: UIButton, forEvent event: UIEvent) {
-       cancelScan()
+        cancelScan()
         locationLabel.text = "Stopped Looking..."
     }
     
@@ -55,13 +55,33 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         super.viewDidLoad()
         
         // Set the label to say "Disconnected" and make the text red
-        connectStatusLbl.text = "Disconnected"
+        connectStatusLbl.text = "No beacons yet"
         connectStatusLbl.textColor = UIColor.yellow
         
+        dataLbl.text = "-"
         // Initialize CoreBluetooth Central Manager object which will be necessary
         // to use CoreBlutooth functions
         centralManager = CBCentralManager(delegate: self, queue: nil)
         
+        locationLabel.text = "Location Unavailable"
+                
+                /* Ask for authorization from the user to use their location */
+                self.locationManager.requestAlwaysAuthorization()
+
+                /* For use in foreground */
+                self.locationManager.requestWhenInUseAuthorization()
+
+                /* If user allows location to be used, set up location
+                    manager and location label settings */
+                if CLLocationManager.locationServicesEnabled() {
+                    locationManager.delegate = self
+                    locationManager.desiredAccuracy = kCLLocationAccuracyBest
+                    self.locationManager.startUpdatingLocation()
+                    
+                    locationLabel.numberOfLines = 3
+                    locationLabel.textAlignment = .center
+                    locationLabel.text = "Current Location:\n\n\n"
+                }
         }
         
         // This function is called right after the view is loaded onto the screen
@@ -226,7 +246,7 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
                 // If service's UUID matches with our specified one...
                 if service.uuid == BLE_Service_UUID {
                     print("Service found")
-                    connectStatusLbl.text = "Connected!"
+                    connectStatusLbl.text = "Connected to beacon!"
                     connectStatusLbl.textColor = UIColor.blue
                     
                     // Search for the characteristics of the service
@@ -311,7 +331,7 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
                                                 encoding: String.Encoding.utf8.rawValue)
             else { return }
             
-            dataLbl.text = "Value: " + (receivedString as String)
+            dataLbl.text = "Signal Strength: " + (receivedString as String)
             
             NotificationCenter.default.post(name:NSNotification.Name(rawValue: "Notify"), object: self)
         }
@@ -345,6 +365,18 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
                 print("Tx Value \(String(describing: txCharacteristic?.value))")
             }
         }
+    /* Update location label when location manager gets an update on location */
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        /* Extract location into latitude/longitude and display */
+        guard let locValue: CLLocationCoordinate2D = manager.location?.coordinate else { return }
+        
+        locationLabel.text = "Current Location:\n\n\(locValue.latitude), \(locValue.longitude)"
+    }
+    
+    /* Print error when location manager fails to get location */
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        locationLabel.text = "[ERROR]: COULD NOT GET LOCATION"
+    }
     }
     
     
